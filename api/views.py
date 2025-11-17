@@ -1,6 +1,6 @@
 from rest_framework import generics, permissions
 from django.contrib.auth import get_user_model
-from .models import User, DojoClass, Enrollment, Payment
+from .models import DojoClass, Enrollment, Payment
 from .serializers import UserSerializer, DojoClassSerializer, EnrollmentSerializer, PaymentSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer

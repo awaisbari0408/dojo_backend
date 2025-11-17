@@ -13,6 +13,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         # If the User model uses 'role' as the field name, include it 
         token['role'] = getattr(user, 'role', 'student')
+        token['user_id'] = user.id
         return token
 
 class UserSerializer(serializers.ModelSerializer):
