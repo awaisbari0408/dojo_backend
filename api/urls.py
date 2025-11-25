@@ -8,6 +8,13 @@ from .views import (
     PaymentListCreateView,
     PaymentDetailView,
     CustomTokenObtainPairView,
+    ScheduleListCreateView,
+    ScheduleDetailView,
+    UserListView,
+    UserDetailView,
+    enrollment_reports,
+    list_instructors,
+    student_schedule,
     admin_stats
 )
 
@@ -16,6 +23,14 @@ urlpatterns = [
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
 
     path('admin/stats/', admin_stats, name='admin-stats'),
+    path('student/schedule/', student_schedule, name='student-schedule'),
+    
+    #  User endpoints
+    path('users/', UserListView.as_view(), name='user_list'),
+    path('users/<int:pk>/', UserDetailView.as_view(), name='user_detail'),
+
+    # Reports
+    path('reports/enrollments/', enrollment_reports, name='enrollment-reports'),
     
     # Class endpoints 
     path('classes/', DojoClassListCreateView.as_view(), name='class_list_create'),
@@ -28,4 +43,12 @@ urlpatterns = [
     # Payment endpoints 
     path('payments/', PaymentListCreateView.as_view(), name='payment_list_create'),
     path('payments/<int:pk>/', PaymentDetailView.as_view(), name='payment_detail'),
+
+    # Schedule endpoints
+    path('schedules/', ScheduleListCreateView.as_view(), name='schedule_list_create'),
+    path('schedules/<int:pk>/', ScheduleDetailView.as_view(), name='schedule_detail'),
+
+    # User Management
+    path("users/", UserListView.as_view(), name="user-list"),
+    path("users/<int:pk>/", UserDetailView.as_view()),
 ]

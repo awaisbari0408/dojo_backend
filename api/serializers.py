@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import DojoClass, Enrollment, Payment
+from .models import DojoClass, Enrollment, Payment, Schedule
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -30,13 +30,26 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+class ScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Schedule
+        fields = ("id", "dojo_class", "weekday", "start_time", "end_time", "location")
+        read_only_fields = ("id",)
+
+
 class DojoClassSerializer(serializers.ModelSerializer):
     instructor = UserSerializer(read_only=True)
-    instructor_id = serializers.PrimaryKeyRelatedField(write_only=True, queryset=User.objects.filter(role='instructor'), source='instructor')
+    instructor_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        queryset=User.objects.filter(role='instructor'),
+        source='instructor'
+    )
+
+    schedules = ScheduleSerializer(many=True, read_only=True)
 
     class Meta:
         model = DojoClass
-        fields = ("id", "name", "description", "instructor", "instructor_id", "schedule", "capacity")
+        fields = ("id", "name", "description", "instructor", "instructor_id", "schedule", "capacity", "schedules")
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     student = UserSerializer(read_only=True)

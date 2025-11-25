@@ -1,12 +1,14 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, exceptions
 from django.contrib.auth import get_user_model
-from .models import DojoClass, Enrollment, Payment
-from .serializers import UserSerializer, DojoClassSerializer, EnrollmentSerializer, PaymentSerializer
+from django.db import models
+from .models import DojoClass, Enrollment, Payment, Schedule
+from .serializers import UserSerializer, DojoClassSerializer, EnrollmentSerializer, PaymentSerializer, ScheduleSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import permissions
+from rest_framework.permissions import IsAdminUser
 
 User = get_user_model()
 
@@ -30,7 +32,10 @@ class DojoClassListCreateView(generics.ListCreateAPIView):
         return [permissions.AllowAny()]
 
     def perform_create(self, serializer):
-        # if instructor provided via instructor_id this will set it
+        # only allow admin or instructor to create classes
+        user = self.request.user
+        if getattr(user, 'role', None) not in ['admin', 'instructor']:
+            raise exceptions.PermissionDenied("Only admins or instructors can create classes.")
         serializer.save()
 
 class DojoClassDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -68,6 +73,68 @@ class PaymentDetailView(generics.RetrieveAPIView):
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+# Schedule Endpoints
+class ScheduleListCreateView(generics.ListCreateAPIView):
+    queryset = Schedule.objects.all()
+    serializer_class = ScheduleSerializer
+
+    def get_permissions(self):
+        # allow anyone to list; only authenticated instructors/admins can create (adjust as needed)
+        if self.request.method == "POST":
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
+    def perform_create(self, serializer):
+        # optional: restrict creation to instructors/admins
+        serializer.save()
+
+class ScheduleDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Schedule.objects.all()
+    serializer_class = ScheduleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class IsAdmin(permissions.BasePermission):
+    """Allow only admins to access."""
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "admin"
+
+
+class UserListView(generics.ListCreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdmin]
+
+
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdmin]
+
+class UserListView(generics.ListAPIView):
+    """
+    List users. Optional filter: ?role=instructor (or admin/student)
+    Requires authentication.
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        role = self.request.query_params.get('role')
+        if role:
+            qs = qs.filter(role=role)
+        return qs
+
+
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve / update / delete a user (admin only for destructive actions in real app).
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def admin_stats(request):
@@ -81,3 +148,35 @@ def admin_stats(request):
         "activeInstructors": User.objects.filter(role='instructor').count()
     }
     return Response(data)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def student_schedule(request):
+    enrollments = Enrollment.objects.filter(student=request.user)
+    schedules = Schedule.objects.filter(dojo_class__in=[e.martial_class for e in enrollments])
+    serializer = ScheduleSerializer(schedules, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def list_instructors(request):
+    instructors = User.objects.filter(role='instructor')
+    data = UserSerializer(instructors, many=True).data
+    return Response(data)
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def enrollment_reports(request):
+    total_enrollments = Enrollment.objects.count()
+
+    # Count enrollments grouped by class name
+    class_stats = (
+        Enrollment.objects
+        .values("martial_class__name")
+        .annotate(count=models.Count("id"))
+        .order_by("-count")
+    )
+
+    return Response({
+        "total_enrollments": total_enrollments,
+        "class_summary": class_stats
+    })
