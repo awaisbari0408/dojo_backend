@@ -99,17 +99,6 @@ class IsAdmin(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == "admin"
 
 
-class UserListView(generics.ListCreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
-
-
-class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [IsAdmin]
-
 class UserListView(generics.ListAPIView):
     """
     List users. Optional filter: ?role=instructor (or admin/student)
